@@ -41,10 +41,6 @@ void find(char *path, char *target)
         {
             printf("%s\n", path); // 若匹配，则打印文件的完整路径
         }
-        else
-        {
-            printf("find: %s not found\n", target); // 如果不匹配，则打印未找到信息
-        }
         break;
     // 如果是目录
     case T_DIR: // 当前路径指向一个目录
@@ -80,6 +76,15 @@ void find(char *path, char *target)
                 continue;
             }
             // 排除 "." 和 ".." 目录
+            // buf 此时的格式是 "parent_path/entry_name"
+            // 例如，如果 buf 是 "dir/."，strlen(buf) 是 5。
+            // buf + strlen(buf) - 2 指向 "dir/." 中的 "/."。
+            // strcmp(buf + strlen(buf) - 2, "/.") 会比较 "/." 和 "/."。
+            // 例如，如果 buf 是 "dir/..", strlen(buf) 是 6。
+            // buf + strlen(buf) - 3 指向 "dir/.." 中的 "/.."。
+            // strcmp(buf + strlen(buf) - 3, "/..") 会比较 "/.." 和 "/.."。
+            // 这样做的目的是确保我们不会递归进入当前目录（"."）或父目录（".."），从而避免无限循环和重复处理。
+            // 只有当目录项既不是 "." 也不是 ".." 时，才进行递归查找。
             if (strcmp(buf + strlen(buf) - 2, "/.") != 0 && strcmp(buf + strlen(buf) - 3, "/..") != 0)
             {
                 find(buf, target); // 递归查找子目录
