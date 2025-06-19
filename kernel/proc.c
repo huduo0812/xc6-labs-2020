@@ -127,6 +127,8 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  p->trace_mask = 0;         //创建新进程的时候，trace_mask 设置为默认值0
+
   return p;
 }
 
@@ -296,6 +298,8 @@ fork(void)
   np->state = RUNNABLE;
 
   release(&np->lock);
+
+  np->trace_mask = p->trace_mask;      //子进程继承父进程的trace_mask
 
   return pid;
 }
