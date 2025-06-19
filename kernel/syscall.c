@@ -105,6 +105,8 @@ extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
 extern uint64 sys_trace(void); // 全局声明 trace 系统调用
+extern uint64 sys_sysinfo(void); // 全局声明 sysinfo 系统调用
+
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -129,6 +131,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_trace]   sys_trace, // 添加 trace 系统调用到系统调用表
+[SYS_sysinfo] sys_sysinfo, // 添加 sysinfo 系统调用到系统调用表
 };
 
 // 定义系统调用名称的字符串数组
