@@ -326,23 +326,36 @@ sfence_vma()
 #define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
 
-#define PTE_V (1L << 0) // valid
-#define PTE_R (1L << 1)
-#define PTE_W (1L << 2)
-#define PTE_X (1L << 3)
-#define PTE_U (1L << 4) // 1 -> user can access
+// RISC-V Sv39页表项(PTE)的标志位定义。PTE是一个64位的条目。
+// 低10位用于存放标志位，高54位用于存放物理页号(PPN)。
+#define PTE_V (1L << 0) // Valid: 标志该PTE是否有效。如果为0，访问该页会产生page fault。
+#define PTE_R (1L << 1) // Readable: 标志该页是否可读。
+#define PTE_W (1L << 2) // Writable: 标志该页是否可写。
+#define PTE_X (1L << 3) // Executable: 标志该页是否可执行（存放代码）。
+#define PTE_U (1L << 4) // User: 标志该页是否允许用户态代码访问。如果为0，只有内核态能访问。
 
-// shift a physical address to the right place for a PTE.
+// 将一个物理地址(pa)转换为可以在PTE中存储的形式。
+// 物理地址结构: [ 物理页号 (PPN) | 页内偏移 (12 bits) ]
+// PTE地址结构:   [ 物理页号 (PPN) | 标志位 (10 bits) ]
+// 1. (pa) >> 12: 物理地址右移12位，丢弃页内偏移，得到PPN。
+// 2. ... << 10:  将PPN左移10位，为其腾出低10位空间用于存放标志位。
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)
 
+// 从一个PTE中提取出物理页的起始地址。
+// 1. (pte) >> 10: PTE右移10位，丢弃10个标志位，得到PPN。
+// 2. ... << 12:  将PPN左移12位，得到该物理页的起始地址（低12位补0）。
 #define PTE2PA(pte) (((pte) >> 10) << 12)
 
+// 从一个PTE中只提取出标志位部分。
+// 0x3FF的二进制是10个1 (1111111111)，通过位与操作屏蔽掉高位的PPN。
 #define PTE_FLAGS(pte) ((pte) & 0x3FF)
 
-// extract the three 9-bit page table indices from a virtual address.
-#define PXMASK          0x1FF // 9 bits
-#define PXSHIFT(level)  (PGSHIFT+(9*(level)))
-#define PX(level, va) ((((uint64) (va)) >> PXSHIFT(level)) & PXMASK)
+// 从一个虚拟地址(va)中，为多级页表提取索引。
+// xv6使用Sv39三级页表，虚拟地址结构为：
+// [ L2索引(9 bits) | L1索引(9 bits) | L0索引(9 bits) | 页内偏移(12 bits) ]
+#define PXMASK          0x1FF // 9 bits, 9个1的掩码 (111111111)
+#define PXSHIFT(level)  (PGSHIFT+(9*(level))) // 计算每一级页表索引的偏移量
+#define PX(level, va) ((((uint64) (va)) >> PXSHIFT(level)) & PXMASK) // 提取指定级别的索引
 
 // one beyond the highest possible virtual address.
 // MAXVA is actually one bit less than the max allowed by
