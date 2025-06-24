@@ -261,47 +261,57 @@ int
 fork(void)
 {
   int i, pid;
-  struct proc *np;
-  struct proc *p = myproc();
+  struct proc *np;          // 指向新进程（子进程）的指针
+  struct proc *p = myproc(); // 指向当前进程（父进程）的指针
 
   // Allocate process.
+  // 为子进程分配一个新的、可用的进程结构体
   if((np = allocproc()) == 0){
-    return -1;
+    return -1; // 如果分配失败，返回错误
   }
 
   // Copy user memory from parent to child.
+  // 复制父进程的用户空间内存（页表）到子进程
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
-    freeproc(np);
-    release(&np->lock);
+    freeproc(np);       // 如果复制失败，清理并释放刚刚为子进程分配的资源
+    release(&np->lock); // 释放子进程的锁
     return -1;
   }
-  np->sz = p->sz;
+  np->sz = p->sz; // 设置子进程的内存大小与父进程相同
 
-  np->parent = p;
+  np->parent = p; // 将子进程的父进程指针指向当前进程
 
   // copy saved user registers.
+  // 复制父进程的陷阱帧。这包含了所有寄存器的状态，是子进程能从父进程暂停的地方继续执行的关键
   *(np->trapframe) = *(p->trapframe);
 
   // Cause fork to return 0 in the child.
+  // 这就是fork的魔法所在：在子进程的陷阱帧中，直接将返回值寄存器a0设为0
+  // 这样，当子进程恢复执行时，它从fork()调用得到的返回值就是0
   np->trapframe->a0 = 0;
 
   // increment reference counts on open file descriptors.
+  // 增加打开文件的引用计数。
+  // 这里是父子进程共享文件的关键。父子进程拥有各自独立的文件描述符表(ofile)，
+  // 但是它们表中的条目指向的是内核中同一个“打开文件”的结构体(struct file)。
+  // filedup()函数会增加该struct file的引用计数。
+  // 因此，父子进程将共享文件的读写偏移量等状态。
   for(i = 0; i < NOFILE; i++)
     if(p->ofile[i])
-      np->ofile[i] = filedup(p->ofile[i]);
-  np->cwd = idup(p->cwd);
+      np->ofile[i] = filedup(p->ofile[i]); // 通过filedup增加文件的内核引用计数，实现共享
+  np->cwd = idup(p->cwd); // 同样，复制当前工作目录，并增加其inode的引用计数
 
-  safestrcpy(np->name, p->name, sizeof(p->name));
+  safestrcpy(np->name, p->name, sizeof(p->name)); // 复制进程名
 
-  pid = np->pid;
+  pid = np->pid; // 获取子进程的PID，它将作为父进程的返回值
 
-  np->state = RUNNABLE;
+  np->state = RUNNABLE; // 将子进程的状态设置为RUNNABLE，让调度器可以调度它
 
-  release(&np->lock);
+  release(&np->lock); // 释放子进程的锁，因为它现在已经可以独立运行了
 
   np->trace_mask = p->trace_mask;      //子进程继承父进程的trace_mask
 
-  return pid;
+  return pid; // 在父进程的上下文中，返回子进程的PID
 }
 
 // Pass p's abandoned children to init.
