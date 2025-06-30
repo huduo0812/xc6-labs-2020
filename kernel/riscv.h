@@ -323,7 +323,13 @@ sfence_vma()
 #define PGSIZE 4096 // bytes per page
 #define PGSHIFT 12  // bits of offset within a page
 
+// 将一个大小sz向上舍入到PGSIZE的整数倍。
+// 例如，PGSIZE为4096，sz为4097，则结果为8192。
+// 常用于内存分配，确保分配的空间足以容纳sz。
 #define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
+// 将一个地址a向下舍入到PGSIZE的整数倍。
+// 例如，PGSIZE为4096，a为4100，则结果为4096。
+// 常用于获取一个地址所在页的起始地址。
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
 
 // RISC-V Sv39页表项(PTE)的标志位定义。PTE是一个64位的条目。
