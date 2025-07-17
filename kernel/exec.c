@@ -129,6 +129,10 @@ exec(char *path, char **argv)
     if(*s == '/')
       last = s+1;
   safestrcpy(p->name, last, sizeof(p->name));
+
+  // 清除内核页表中对程序内存的旧映射，然后重新建立映射
+  uvmunmap(p->kernelpgtbl, 0, PGROUNDUP(oldsz) / PGSIZE, 0);
+  kvmcopymappings(pagetable, p->kernelpgtbl, 0, sz);
     
   // 8. 提交新的程序镜像
   // 切换到新的页表
