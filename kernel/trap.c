@@ -67,23 +67,15 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if (r_scause() == 13 || r_scause() == 15) { // 惰性分配导致的缺页异常
-    uint64 fault_va = r_stval();      // 获取引发缺页异常的虚拟地址
-      char* pa = 0;                     // 分配的物理地址
-      // 判断fault_va是否在进程堆空间之中
-      if (PGROUNDUP(p->trapframe->sp) - 1 < fault_va && fault_va < p->sz && (pa = kalloc()) != 0) {
-          memset(pa, 0, PGSIZE);
-          // 物理内存映射
-          if (mappages(p->pagetable, PGROUNDDOWN(fault_va), PGSIZE, (uint64)pa, PTE_R | PTE_W | PTE_X | PTE_U) != 0) {      
-              printf("lazy alloc: failed to map page\n");
-              kfree(pa);
-              p->killed = 1;
-          }
-      }
   } else {
-    printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
-    p->killed = 1;
+    uint64 va = r_stval();
+    if((r_scause() == 13 || r_scause() == 15) && uvmshouldallocate(va)){   // 缺页异常，并且发生异常的地址进行过惰性分配
+        uvmlazyallocate(va); // 分配物理内存，并在页表创建映射
+    } else { // 如果不是缺页异常，或者是在非惰性分配地址上发生缺页异常，则抛出错误并杀死进程
+      printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+      printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+      p->killed = 1;
+    }
   }
 
   if(p->killed)
